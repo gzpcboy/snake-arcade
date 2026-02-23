@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Neon Snake</title>
+  <meta name="description" content="A sleek browser Snake game." />
+  <style>
+    :root{--bg:#0b1020;--panel:#121a2b;--line:#26314f;--text:#e8eeff;--accent:#38f0a8;--food:#ff4d8a}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 20% 0%,#18284a 0%,#0b1020 45%);color:var(--text);font-family:Inter,system-ui,sans-serif;min-height:100vh;display:grid;place-items:center}
+    .wrap{width:min(92vw,680px)}
+    .top{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px;background:#121a2bcc;border:1px solid #ffffff1f;padding:10px 12px;border-radius:12px}
+    .badge{font-size:.9rem;color:#b9c7ee}
+    button{background:linear-gradient(90deg,#2ec5ff,#7f5bff);color:white;border:none;border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
+    canvas{width:100%;aspect-ratio:1/1;border-radius:14px;border:1px solid #ffffff2b;background:linear-gradient(180deg,#0e1528,#0a1020)}
+    .controls{display:grid;grid-template-columns:repeat(3,64px);grid-template-rows:repeat(2,64px);justify-content:center;gap:8px;margin-top:12px}
+    .controls button{background:#1a2440;border:1px solid #ffffff22}
+    .controls .u{grid-column:2}.controls .l{grid-column:1;grid-row:2}.controls .d{grid-column:2;grid-row:2}.controls .r{grid-column:3;grid-row:2}
+    .hint{margin-top:8px;color:#9fb0de;font-size:.9rem;text-align:center}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="top">
+      <div>
+        <div><strong>Neon Snake</strong></div>
+        <div class="badge">Score: <span id="score">0</span> · Best: <span id="best">0</span></div>
+      </div>
+      <button id="restart">Restart</button>
+    </div>
+    <canvas id="game" width="600" height="600" aria-label="Snake game canvas"></canvas>
+    <div class="controls" aria-label="Touch controls">
+      <button class="u" data-dir="up">▲</button>
+      <button class="l" data-dir="left">◀</button>
+      <button class="d" data-dir="down">▼</button>
+      <button class="r" data-dir="right">▶</button>
+    </div>
+    <div class="hint">Use arrow keys / WASD or buttons.</div>
+  </main>
+
+  <script>
+    const cvs = document.getElementById('game');
+    const ctx = cvs.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const bestEl = document.getElementById('best');
+    const size = 20, tiles = 30;
+    let snake, dir, nextDir, food, score, speed, loop, best = Number(localStorage.getItem('snakeBest')||0);
+    bestEl.textContent = best;
+
+    function reset(){
+      snake = [{x:10,y:15},{x:9,y:15},{x:8,y:15}];
+      dir='right'; nextDir='right'; score=0; speed=120;
+      placeFood(); scoreEl.textContent = score;
+      if (loop) clearInterval(loop);
+      loop = setInterval(tick, speed);
+      draw();
+    }
+
+    function placeFood(){
+      do { food={x:Math.floor(Math.random()*tiles), y:Math.floor(Math.random()*tiles)}; }
+      while (snake?.some(s=>s.x===food.x&&s.y===food.y));
+    }
+
+    function setDir(d){
+      const bad = (dir==='up'&&d==='down')||(dir==='down'&&d==='up')||(dir==='left'&&d==='right')||(dir==='right'&&d==='left');
+      if(!bad) nextDir=d;
+    }
+
+    function tick(){
+      dir = nextDir;
+      const head = {...snake[0]};
+      if (dir==='up') head.y--; if (dir==='down') head.y++; if (dir==='left') head.x--; if (dir==='right') head.x++;
+      if (head.x<0||head.y<0||head.x>=tiles||head.y>=tiles||snake.some(s=>s.x===head.x&&s.y===head.y)) {
+        gameOver(); return;
+      }
+      snake.unshift(head);
+      if (head.x===food.x&&head.y===food.y){
+        score++; scoreEl.textContent=score;
+        if(score>best){best=score; localStorage.setItem('snakeBest',best); bestEl.textContent=best;}
+        placeFood();
+        if (speed>70 && score%5===0){ speed-=8; clearInterval(loop); loop=setInterval(tick,speed); }
+      } else snake.pop();
+      draw();
+    }
+
+    function gameOver(){
+      clearInterval(loop);
+      ctx.fillStyle='#00000099'; ctx.fillRect(0,0,cvs.width,cvs.height);
+      ctx.fillStyle='#fff'; ctx.font='bold 42px Inter, sans-serif'; ctx.textAlign='center';
+      ctx.fillText('Game Over', cvs.width/2, cvs.height/2 - 8);
+      ctx.font='20px Inter, sans-serif'; ctx.fillText(`Score: ${score}`, cvs.width/2, cvs.height/2 + 30);
+    }
+
+    function drawGrid(){
+      ctx.strokeStyle = '#26314f66';
+      for(let i=0;i<=tiles;i++){ const p=i*size; ctx.beginPath(); ctx.moveTo(p,0); ctx.lineTo(p,cvs.height); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,p); ctx.lineTo(cvs.width,p); ctx.stroke(); }
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,cvs.width,cvs.height);
+      drawGrid();
+      ctx.fillStyle = '#ff4d8a';
+      ctx.fillRect(food.x*size+2, food.y*size+2, size-4, size-4);
+      snake.forEach((s,i)=>{
+        ctx.fillStyle = i===0 ? '#38f0a8' : '#25c88a';
+        ctx.fillRect(s.x*size+1.5, s.y*size+1.5, size-3, size-3);
+      });
+    }
+
+    document.addEventListener('keydown',(e)=>{
+      const k=e.key.toLowerCase();
+      if(['arrowup','w'].includes(k)) setDir('up');
+      if(['arrowdown','s'].includes(k)) setDir('down');
+      if(['arrowleft','a'].includes(k)) setDir('left');
+      if(['arrowright','d'].includes(k)) setDir('right');
+    });
+
+    document.querySelectorAll('[data-dir]').forEach(btn=>btn.addEventListener('click',()=>setDir(btn.dataset.dir)));
+    document.getElementById('restart').addEventListener('click', reset);
+    reset();
+  </script>
+</body>
+</html>
